@@ -61,6 +61,12 @@ class Commodity(Base):
     unit_of_measure: Mapped[str] = mapped_column(String, nullable=False)  # bushel, ton, cwt
     futures_symbol: Mapped[str] = mapped_column(String, nullable=True)  # ZC, ZS, ZW
     contract_size: Mapped[float] = mapped_column(Numeric(12, 2), nullable=True)
+    # Converts delivery-ticket net weight (always lbs — Easy Automation
+    # reports feed usage in lbs regardless of the commodity) into this
+    # commodity's unit_of_measure. For tons this is always 2000; for bushels
+    # it's the commodity's standard test weight (e.g. corn 56, soybeans 60,
+    # wheat 60) — it varies by commodity, not by contract, so it lives here.
+    lbs_per_unit: Mapped[float] = mapped_column(Numeric(10, 4), nullable=False)
 
     contracts: Mapped[list["BasisContract"]] = relationship(back_populates="commodity")
     grade_schedules: Mapped[list["GradeAdjustmentSchedule"]] = relationship(
@@ -145,6 +151,10 @@ class DeliveryTicket(Base):
     ticket_number: Mapped[str] = mapped_column(String, nullable=True)
     warehouse_location: Mapped[str] = mapped_column(String, nullable=True)
 
+    # Always lbs (scale weight) regardless of the contract's commodity unit —
+    # Easy Automation reports feed usage in lbs. Convert via
+    # Commodity.lbs_per_unit before comparing against quantity_contracted;
+    # see services/settlement.py:quantity_delivered.
     gross_weight: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
     net_weight: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
 

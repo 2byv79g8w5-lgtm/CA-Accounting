@@ -11,6 +11,7 @@ from app.models import ContractType, ContractStatus, PaymentStatus, GradeFactor
 class CommodityCreate(BaseModel):
     name: str
     unit_of_measure: str
+    lbs_per_unit: float
     futures_symbol: Optional[str] = None
     contract_size: Optional[float] = None
 

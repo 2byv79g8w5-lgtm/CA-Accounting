@@ -130,6 +130,12 @@ requirements.txt
 - CRUD endpoints for all of them
 - Settlement math: weighted-average futures price from pricing events,
   running totals for quantity priced/delivered, grade adjustment lookup
+- Unit conversion for delivered quantity: commodities are tracked in their
+  own unit (bu, ton, etc. — set per-commodity via `lbs_per_unit`), but
+  delivery-ticket weight is always lbs (that's what Easy Automation reports
+  feed usage in). `quantity_delivered` converts lbs → the commodity's unit
+  before comparing against `quantity_contracted` — see
+  `services/settlement.py`.
 - A lightweight local cache table for grower info (`GrowerRef`) — Odoo's
   `res.partner` stays the source of truth; this just stores the Odoo partner
   ID plus a display name so contracts can reference a grower without a live

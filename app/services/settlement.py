@@ -24,13 +24,22 @@ def quantity_priced(db: Session, contract_id: str) -> float:
 
 
 def quantity_delivered(db: Session, contract_id: str) -> float:
-    """Sum of net weight across all delivery tickets for a contract."""
-    total = (
+    """Sum of delivered quantity for a contract, in the contract's commodity
+    unit (bu/ton/etc). Delivery ticket net_weight is always lbs — see
+    DeliveryTicket — so this converts using Commodity.lbs_per_unit rather
+    than summing raw lbs against a quantity_contracted that may be in a
+    different unit."""
+    total_lbs = (
         db.query(func.coalesce(func.sum(models.DeliveryTicket.net_weight), 0))
         .filter(models.DeliveryTicket.contract_id == contract_id)
         .scalar()
     )
-    return float(total)
+    if not total_lbs:
+        return 0.0
+
+    contract = db.get(models.BasisContract, contract_id)
+    lbs_per_unit = float(contract.commodity.lbs_per_unit)
+    return float(total_lbs) / lbs_per_unit
 
 
 def weighted_avg_futures_price(db: Session, contract_id: str) -> float:
