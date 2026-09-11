@@ -11,26 +11,42 @@ Odoo isn't set up yet — wire it up once you have a live instance to test again
 
 ## Planned integrations (not built yet)
 
-Two external systems are meant to sit around this app once it's live:
+This app is one corner of a **three-way sync** with two other systems:
 
-- **Easy Automation** — the feed-mixing system at the elevator. It will call
-  into this app's API to look up a customer's basis contract (pricing,
-  quantities, running totals) before/while mixing feed, so the mix reflects
-  the customer's actual contract terms.
-- **Odoo** — after Easy Automation determines what was used against a
-  contract, the resulting settlement gets invoiced through to Odoo (see
-  `app/odoo_client.py` / `create_settlement_journal_entry()`).
+- **Easy Automation** — the feed-mixing system at the elevator.
+- **Odoo** — the accounting system of record for inventory and invoices.
 
-So the flow is roughly: **Easy Automation reads a contract from this app →
-this app (or Easy Automation, calling back into this app) posts the
-resulting settlement/invoice to Odoo.**
+The requirement is: **a change made in either this app or Easy Automation
+needs to update the other, and both need to push inventory/invoice updates
+to Odoo.** Concretely:
 
-Neither integration is built yet — both are waiting on the other system
-being available to build and test against:
-- Easy Automation side needs: API auth for an external caller (this app
-  currently has none — see "Not built yet" below) and confirmation of what
-  contract fields Easy Automation actually needs to read.
-- Odoo side needs: a live Odoo instance (see `app/odoo_client.py`'s TODOs).
+- A contract/inventory change made **in this app** → sync to Easy Automation
+  (so its feed mixes reflect current contract terms) → and push the
+  resulting inventory/invoice update to Odoo.
+- A change made **in Easy Automation** (e.g. feed mixed/used against a
+  contract) → sync back to this app (to update running totals/inventory
+  here) → and push the resulting inventory/invoice update to Odoo.
+- Odoo is the shared destination for inventory and invoice records from
+  both sides, not just a one-way destination for settlements from this app
+  alone.
+
+None of this is built yet. Open questions to settle before building it:
+- **Direction/transport**: webhooks (each side calls the other when it
+  changes), polling, or a message queue? Two-way HTTP webhooks are the
+  simplest starting point given this app and Odoo already speak HTTP APIs.
+- **Source of truth for inventory**: if both this app and Easy Automation
+  can change inventory, what happens on a conflict (e.g. both change the
+  same contract's remaining quantity at once)?
+- **What "invoice to Odoo" means from Easy Automation's side**: does Easy
+  Automation call Odoo directly, or always route through this app's
+  `odoo_client.py` so there's one place that owns the GL account mapping?
+  (Recommend: always through this app, so the accounting policy — which
+  accounts get debited/credited — lives in one place.)
+- **API auth**: this app has none yet (see "Not built yet" below) — needed
+  in both directions before Easy Automation can call in, or before this app
+  can call out to Easy Automation.
+- **Odoo side**: still needs a live instance to build/test against (see
+  `app/odoo_client.py`'s TODOs).
 
 ## Stack
 
@@ -130,10 +146,10 @@ requirements.txt
 - Alembic migrations (currently using a blunt `create_all` — fine for now,
   worth adding once the schema stabilizes and you need to evolve it without
   dropping data)
-- The Easy Automation integration (see "Planned integrations" above) — no
-  code for this yet; needs API auth on this app plus agreement on what
-  contract data Easy Automation reads and how the resulting settlement gets
-  invoiced to Odoo
+- The three-way sync with Easy Automation and Odoo (see "Planned
+  integrations" above) — no code for this yet; needs API auth on this app,
+  a decision on transport (webhooks vs. polling), and a source-of-truth
+  rule for inventory conflicts before either sync direction can be built
 
 ## Next steps
 
@@ -144,8 +160,12 @@ requirements.txt
 3. Decide the settlement → journal entry account mapping and implement it in
    `create_settlement_journal_entry()`.
 4. Add API authentication so external callers (Easy Automation) can be
-   authorized to read contract data.
-5. Build the Easy Automation side: which endpoint(s) it calls to read a
-   contract, and how/when the settlement invoice gets triggered to Odoo.
-6. Build a frontend, or start with the auto-generated `/docs` UI for internal
+   authorized to read from and write to this app.
+5. Settle the open questions under "Planned integrations" (transport,
+   inventory source-of-truth/conflict rule, whether Easy Automation posts to
+   Odoo directly or always through this app's `odoo_client.py`).
+6. Build the sync in both directions: this app → Easy Automation, and
+   Easy Automation → this app, each followed by an inventory/invoice push
+   to Odoo.
+7. Build a frontend, or start with the auto-generated `/docs` UI for internal
    use while the frontend comes later.
