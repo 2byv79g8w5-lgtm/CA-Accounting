@@ -9,6 +9,29 @@ CRUD endpoints, and the computed logic for running totals / weighted averages
 in place. The Odoo integration is stubbed out (see `app/odoo_client.py`) since
 Odoo isn't set up yet — wire it up once you have a live instance to test against.
 
+## Planned integrations (not built yet)
+
+Two external systems are meant to sit around this app once it's live:
+
+- **Easy Automation** — the feed-mixing system at the elevator. It will call
+  into this app's API to look up a customer's basis contract (pricing,
+  quantities, running totals) before/while mixing feed, so the mix reflects
+  the customer's actual contract terms.
+- **Odoo** — after Easy Automation determines what was used against a
+  contract, the resulting settlement gets invoiced through to Odoo (see
+  `app/odoo_client.py` / `create_settlement_journal_entry()`).
+
+So the flow is roughly: **Easy Automation reads a contract from this app →
+this app (or Easy Automation, calling back into this app) posts the
+resulting settlement/invoice to Odoo.**
+
+Neither integration is built yet — both are waiting on the other system
+being available to build and test against:
+- Easy Automation side needs: API auth for an external caller (this app
+  currently has none — see "Not built yet" below) and confirmation of what
+  contract fields Easy Automation actually needs to read.
+- Odoo side needs: a live Odoo instance (see `app/odoo_client.py`'s TODOs).
+
 ## Stack
 
 - **FastAPI** — backend API
@@ -102,10 +125,15 @@ requirements.txt
   `TODO` in `app/odoo_client.py`)
 - A frontend UI (the API is usable as-is via `/docs`, but there's no
   browser UI for data entry yet)
-- Authentication/authorization on the API itself
+- Authentication/authorization on the API itself — needed before Easy
+  Automation (or anything else) can call in from outside
 - Alembic migrations (currently using a blunt `create_all` — fine for now,
   worth adding once the schema stabilizes and you need to evolve it without
   dropping data)
+- The Easy Automation integration (see "Planned integrations" above) — no
+  code for this yet; needs API auth on this app plus agreement on what
+  contract data Easy Automation reads and how the resulting settlement gets
+  invoiced to Odoo
 
 ## Next steps
 
@@ -115,5 +143,9 @@ requirements.txt
    a `res.partner` record to confirm the connection works.
 3. Decide the settlement → journal entry account mapping and implement it in
    `create_settlement_journal_entry()`.
-4. Build a frontend, or start with the auto-generated `/docs` UI for internal
+4. Add API authentication so external callers (Easy Automation) can be
+   authorized to read contract data.
+5. Build the Easy Automation side: which endpoint(s) it calls to read a
+   contract, and how/when the settlement invoice gets triggered to Odoo.
+6. Build a frontend, or start with the auto-generated `/docs` UI for internal
    use while the frontend comes later.
