@@ -25,10 +25,17 @@ to Odoo.** Concretely:
   resulting inventory/invoice update to Odoo.
 - A change made **in Easy Automation** (e.g. feed mixed/used against a
   contract) → sync back to this app (to update running totals/inventory
-  here) → and push the resulting inventory/invoice update to Odoo.
+  here) → **this app** (not Easy Automation) pushes the resulting
+  inventory/invoice update to Odoo.
 - Odoo is the shared destination for inventory and invoice records from
   both sides, not just a one-way destination for settlements from this app
-  alone.
+  alone — but it only ever hears from this app, never directly from Easy
+  Automation.
+
+**Decided:** for items/contracts tracked in this app, Easy Automation never
+calls Odoo directly — it only talks to this app, and this app is the sole
+caller of Odoo's API (via `odoo_client.py`), so the GL account mapping and
+accounting policy stay in one place.
 
 None of this is built yet. Open questions to settle before building it:
 - **Direction/transport**: webhooks (each side calls the other when it
@@ -37,11 +44,6 @@ None of this is built yet. Open questions to settle before building it:
 - **Source of truth for inventory**: if both this app and Easy Automation
   can change inventory, what happens on a conflict (e.g. both change the
   same contract's remaining quantity at once)?
-- **What "invoice to Odoo" means from Easy Automation's side**: does Easy
-  Automation call Odoo directly, or always route through this app's
-  `odoo_client.py` so there's one place that owns the GL account mapping?
-  (Recommend: always through this app, so the accounting policy — which
-  accounts get debited/credited — lives in one place.)
 - **API auth**: this app has none yet (see "Not built yet" below) — needed
   in both directions before Easy Automation can call in, or before this app
   can call out to Easy Automation.
@@ -161,11 +163,10 @@ requirements.txt
    `create_settlement_journal_entry()`.
 4. Add API authentication so external callers (Easy Automation) can be
    authorized to read from and write to this app.
-5. Settle the open questions under "Planned integrations" (transport,
-   inventory source-of-truth/conflict rule, whether Easy Automation posts to
-   Odoo directly or always through this app's `odoo_client.py`).
+5. Settle the remaining open questions under "Planned integrations"
+   (transport, inventory source-of-truth/conflict rule).
 6. Build the sync in both directions: this app → Easy Automation, and
-   Easy Automation → this app, each followed by an inventory/invoice push
-   to Odoo.
+   Easy Automation → this app, with this app (never Easy Automation) pushing
+   the resulting inventory/invoice update to Odoo.
 7. Build a frontend, or start with the auto-generated `/docs` UI for internal
    use while the frontend comes later.
